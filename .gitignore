@@ -1,0 +1,21 @@
+# Created by https://www.toptal.com/developers/gitignore/api/go
+# Edit at https://www.toptal.com/developers/gitignore?templates=go
+
+### Go ###
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+out/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+report.json
+
+# End of https://www.toptal.com/developers/gitignore/api/go
+
+.idea
