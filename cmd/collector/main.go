@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/markusheinemann/downline/packages/config"
 	"github.com/markusheinemann/downline/packages/openskynetwork"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -13,7 +15,12 @@ import (
 func main() {
 
 	ctx := context.Background()
-	client := createOpenSkyClient(ctx)
+	cfg, err := loadConfig(os.Args[1:])
+	if err != nil {
+		log.Fatalf("failed to load config:\n%v", err)
+	}
+
+	client := createOpenSkyClient(ctx, cfg.OpenSky)
 
 	res, err := client.ListAllStateVectors(ctx, openskynetwork.StateVectorOptions{})
 	if err != nil {
@@ -23,11 +30,11 @@ func main() {
 	fmt.Println(res)
 }
 
-func createOpenSkyClient(ctx context.Context) *openskynetwork.Client {
+func createOpenSkyClient(ctx context.Context, cfg config.OpenSky) *openskynetwork.Client {
 	conf := clientcredentials.Config{
-		ClientID:     "XXX",
-		ClientSecret: "XXX",
-		TokenURL:     "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		TokenURL:     cfg.TokenURL,
 	}
 
 	ts := conf.TokenSource(ctx)
