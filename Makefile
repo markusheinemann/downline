@@ -10,6 +10,9 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
+# Minimum total test coverage in percent, excluding cmd/
+COVERAGE_MIN ?= 80
+
 ## Quality
 check-quality: ## runs code quality checks
 	make fmt
@@ -27,7 +30,13 @@ tidy: ## runs tidy to fix go.mod dependencies
 ## Testing
 test: ## runs tests and create generates coverage report
 	make tidy
-	go test -v -timeout 10m ./... -coverprofile=coverage.out -json > report.json
+	go test -v -race -timeout 10m ./... -coverprofile=coverage.out -json > report.json
+
+coverage-check: ## checks if the minimum code coverage is given
+	@grep -v '/cmd/' coverage.out > coverage.filtered.out
+	@total=$$(go tool cover -func=coverage.filtered.out | awk '/^total:/ { sub("%", "", $$3); print $$3 }'); \
+	echo "Total coverage (excluding cmd/): $$total% (minimum: $(COVERAGE_MIN)%)"; \
+	awk -v total="$$total" -v min="$(COVERAGE_MIN)" 'BEGIN { exit !(total >= min) }' || { echo "Coverage is below $(COVERAGE_MIN)%"; exit 1; }
 
 coverage: ## displays test coverage report in html mode
 	make test
