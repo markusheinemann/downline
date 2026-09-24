@@ -164,4 +164,29 @@ func TestWrite(t *testing.T) {
 			t.Fatalf("expected %s, got %s", "second", string(got))
 		}
 	})
+
+	t.Run("written data is readable without closing the archiver", func(t *testing.T) {
+		dir := t.TempDir()
+		now := time.Date(2026, 9, 24, 13, 59, 0, 0, time.UTC)
+		clock := func() time.Time { return now }
+
+		za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// deliberately no Close before reading: simulates a crash / kill -9
+		defer za.Close()
+
+		for _, chunk := range []string{"first", "second"} {
+			if _, err := za.Write([]byte(chunk)); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		got := readZstd(t, filepath.Join(dir, "archive_2026-09-24_13.zst"))
+		if !bytes.Equal(got, []byte("firstsecond")) {
+			t.Fatalf("expected %s, got %s", "firstsecond", string(got))
+		}
+	})
 }

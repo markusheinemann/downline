@@ -55,7 +55,12 @@ func (za *ZstdArchiver) Write(content []byte) (int, error) {
 		}
 	}
 
-	return za.encoder.Write(content)
+	frame := za.encoder.EncodeAll(content, nil)
+	if _, err := za.outputFile.Write(frame); err != nil {
+		return 0, err
+	}
+
+	return len(content), nil
 }
 
 // Close will clean up the archiver.
