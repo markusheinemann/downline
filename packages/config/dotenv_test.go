@@ -1,10 +1,14 @@
 package config
 
 import (
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+var logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func writeDotEnv(t *testing.T, content string) string {
 	t.Helper()
@@ -86,7 +90,7 @@ func TestLoadDotEnv(t *testing.T) {
 			}
 
 			path := writeDotEnv(t, test.content)
-			if err := LoadDotEnv(path); err != nil {
+			if err := LoadDotEnv(logger, path); err != nil {
 				t.Fatalf("expected LoadDotEnv to succeed, got %v", err)
 			}
 
@@ -108,14 +112,14 @@ func TestLoadDotEnv(t *testing.T) {
 
 	t.Run("succeeds when the file does not exist", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), ".env")
-		if err := LoadDotEnv(path); err != nil {
+		if err := LoadDotEnv(logger, path); err != nil {
 			t.Errorf("expected LoadDotEnv to succeed, got %v", err)
 		}
 	})
 
 	t.Run("returns open errors other than not exist", func(t *testing.T) {
 		path := filepath.Join(writeDotEnv(t, ""), ".env")
-		if err := LoadDotEnv(path); err == nil {
+		if err := LoadDotEnv(logger, path); err == nil {
 			t.Error("expected LoadDotEnv to fail")
 		}
 	})
@@ -124,7 +128,7 @@ func TestLoadDotEnv(t *testing.T) {
 		unsetEnv(t, "TEST_DOTENV_A", "TEST_DOTENV_B")
 
 		path := writeDotEnv(t, "# comment\nTEST_DOTENV_A=value\nINVALID\nTEST_DOTENV_B=value\n")
-		err := LoadDotEnv(path)
+		err := LoadDotEnv(logger, path)
 
 		expected := path + ":3: expected key=value"
 		if err == nil || err.Error() != expected {

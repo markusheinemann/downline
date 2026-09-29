@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
@@ -19,9 +20,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
-
-	cfg, err := loadConfig(os.Args[1:])
+	logger := slog.Default()
+	cfg, err := loadConfig(logger, os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to load config:\n%v", err)
 	}
@@ -49,10 +49,10 @@ func createOpenSkyClient(ctx context.Context, cfg config.OpenSky) *openskynetwor
 	return openskynetwork.NewClient(tc)
 }
 
-func createArchiver(outputPath string, logger *log.Logger) *archive.ZstdArchiver {
+func createArchiver(outputPath string, logger *slog.Logger) *archive.ZstdArchiver {
 	archiver, err := archive.NewZstdArchiver(outputPath, logger)
 	if err != nil {
-		logger.Fatal(err)
+		logger.With("err", err).Error("failed to create archiver")
 	}
 	return archiver
 }

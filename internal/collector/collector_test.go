@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"sync"
@@ -64,6 +64,7 @@ func fail(err error) func(ctx context.Context) (*openskynetwork.StateVectorsRawR
 }
 
 var rateLimited = &openskynetwork.APIError{StatusCode: http.StatusTooManyRequests, Status: "429 Too Many Requests"}
+var logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func assertOffsets(t *testing.T, got, want []time.Duration) {
 	t.Helper()
@@ -78,7 +79,7 @@ func TestRun_FetchesOnIntervalBoundariesAndStoresLines(t *testing.T) {
 		f := &fakeFetcher{fn: ok("{\n  \"time\": 1\n}")}
 
 		var out bytes.Buffer
-		c := New(log.New(io.Discard, "", 0), f, time.Minute, &out)
+		c := New(logger, f, time.Minute, &out)
 		err := runFor(t, c, 3*time.Minute+30*time.Second)
 
 		if !errors.Is(err, context.Canceled) {
@@ -96,7 +97,7 @@ func TestRun_BacksOffExponentiallyWhenRateLimited(t *testing.T) {
 		start := time.Now()
 		f := &fakeFetcher{fn: fail(rateLimited)}
 		var out bytes.Buffer
-		c := New(log.New(io.Discard, "", 0), f, time.Minute, &out)
+		c := New(logger, f, time.Minute, &out)
 
 		err := runFor(t, c, 10*time.Minute)
 		if !errors.Is(err, context.Canceled) {
@@ -129,7 +130,7 @@ func TestRun_KeepsRunningAfterFailedCycles(t *testing.T) {
 				start := time.Now()
 				f := &fakeFetcher{fn: tt.fn}
 				var out bytes.Buffer
-				c := New(log.New(io.Discard, "", 0), f, time.Minute, &out)
+				c := New(logger, f, time.Minute, &out)
 
 				err := runFor(t, c, 3*time.Minute+30*time.Second)
 

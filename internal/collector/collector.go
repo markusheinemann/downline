@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/markusheinemann/downline/packages/openskynetwork"
 )
 
 type Collector struct {
-	log      *log.Logger
+	log      *slog.Logger
 	client   stateFetcher
 	interval time.Duration
 	archiver io.Writer
@@ -24,7 +24,7 @@ type stateFetcher interface {
 	ListAllStateVectors(ctx context.Context, opts openskynetwork.StateVectorOptions) (*openskynetwork.StateVectorsRawResponse, error)
 }
 
-func New(log *log.Logger, client stateFetcher, interval time.Duration, archiver io.Writer) *Collector {
+func New(log *slog.Logger, client stateFetcher, interval time.Duration, archiver io.Writer) *Collector {
 	return &Collector{
 		log:      log,
 		client:   client,
@@ -34,7 +34,7 @@ func New(log *log.Logger, client stateFetcher, interval time.Duration, archiver 
 }
 
 func (c *Collector) Run(ctx context.Context) error {
-	c.log.Println("collector starting", "interval", c.interval)
+	c.log.Info("collector starting", "interval", c.interval)
 
 	timer := time.NewTimer(untilNext(time.Now(), c.interval))
 	defer timer.Stop()
@@ -44,7 +44,7 @@ func (c *Collector) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			c.log.Println("collector stopping")
+			c.log.Info("collector stopping")
 			return ctx.Err()
 		case tick := <-timer.C:
 
@@ -53,11 +53,15 @@ func (c *Collector) Run(ctx context.Context) error {
 			switch {
 			case errors.Is(err, openskynetwork.ErrRateLimited):
 				backoff = max(backoff*2, c.interval)
-				c.log.Println("rate limited, backing off", "for", backoff)
+				c.log.
+					With("for", backoff).
+					Warn("rate limited, backing off", "for", backoff)
 				timer.Reset(backoff)
 
 			case err != nil:
-				c.log.Println("cycle failed", "err", err)
+				c.log.
+					With("err", err).
+					Error("cycle failed")
 				backoff = 0
 				timer.Reset(untilNext(time.Now(), c.interval))
 
@@ -97,9 +101,10 @@ func (c *Collector) cycle(ctx context.Context, tick time.Time) error {
 	if err != nil {
 		return fmt.Errorf("write to archive failed: %w", err)
 	}
-	c.log.Print("wrote to archive",
-		"length", length,
-		"delay", time.Since(tick))
+	c.log.
+		With("length", length).
+		With("delay", time.Since(tick)).
+		Info("wrote archive to disk")
 
 	return nil
 }

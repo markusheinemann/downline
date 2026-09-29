@@ -4,7 +4,7 @@ package archive
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -19,17 +19,17 @@ type ZstdArchiver struct {
 	outputPath  string
 	outputFile  *os.File
 	encoder     *zstd.Encoder
-	logger      *log.Logger
+	logger      *slog.Logger
 	now         func() time.Time
 }
 
 // NewZstdArchiver creates a new instance of the archiver. The outputPath specifies where the
 // compressed archives will be stored.
-func NewZstdArchiver(outputPath string, logger *log.Logger) (*ZstdArchiver, error) {
+func NewZstdArchiver(outputPath string, logger *slog.Logger) (*ZstdArchiver, error) {
 	return newZstdArchiver(outputPath, logger, time.Now)
 }
 
-func newZstdArchiver(outputPath string, logger *log.Logger, now func() time.Time) (*ZstdArchiver, error) {
+func newZstdArchiver(outputPath string, logger *slog.Logger, now func() time.Time) (*ZstdArchiver, error) {
 	za := &ZstdArchiver{
 		outputPath: outputPath,
 		logger:     logger,
@@ -69,12 +69,12 @@ func (za *ZstdArchiver) Close() error {
 	defer za.mu.Unlock()
 
 	if za.encoder != nil {
-		za.logger.Println("closing zstd encoder")
+		za.logger.Info("closing zstd encoder")
 		za.encoder.Close()
 	}
 
 	if za.outputFile != nil {
-		za.logger.Println("closing zstd output file")
+		za.logger.Info("closing zstd output file")
 		return za.outputFile.Close()
 	}
 
@@ -82,7 +82,7 @@ func (za *ZstdArchiver) Close() error {
 }
 
 func (za *ZstdArchiver) rotate() error {
-	za.logger.Println("rotating zstd archive")
+	za.logger.Info("rotating zstd archive")
 
 	if za.encoder != nil {
 		za.encoder.Close()
@@ -113,7 +113,9 @@ func (za *ZstdArchiver) rotate() error {
 	za.encoder = zw
 	za.currentHour = startOfHour(now)
 
-	za.logger.Printf("Rotated archive stream to new frame: %s\n", fileName)
+	za.logger.
+		With("name", fileName).
+		Info("rotated archive stream to new frame")
 
 	return nil
 }

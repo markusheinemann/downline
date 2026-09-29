@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/markusheinemann/downline/packages/config"
@@ -12,8 +13,8 @@ type Config struct {
 	ArchivePath  string
 }
 
-func loadConfig(args []string) (Config, error) {
-	if err := config.LoadDotEnv(".env"); err != nil {
+func loadConfig(logger *slog.Logger, args []string) (Config, error) {
+	if err := config.LoadDotEnv(logger, ".env"); err != nil {
 		return Config{}, err
 	}
 

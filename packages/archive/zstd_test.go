@@ -3,7 +3,7 @@ package archive
 import (
 	"bytes"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 )
+
+var logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func readZstd(t *testing.T, path string) []byte {
 	t.Helper()
@@ -39,7 +41,7 @@ func TestWrite(t *testing.T) {
 	t.Run("writes to specified output location", func(t *testing.T) {
 		dir := t.TempDir()
 		now := time.Date(2026, 9, 24, 13, 0, 0, 0, time.UTC)
-		za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), func() time.Time { return now })
+		za, err := newZstdArchiver(dir, logger, func() time.Time { return now })
 
 		if err != nil {
 			t.Fatal(err)
@@ -72,7 +74,7 @@ func TestWrite(t *testing.T) {
 		clock := func() time.Time { return now }
 
 		for _, chunk := range []string{"first", "second", "third", "fourth"} {
-			za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), clock)
+			za, err := newZstdArchiver(dir, logger, clock)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -95,7 +97,7 @@ func TestWrite(t *testing.T) {
 		current := time.Date(2026, 9, 24, 13, 59, 0, 0, time.UTC)
 		clock := func() time.Time { return current }
 
-		za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), clock)
+		za, err := newZstdArchiver(dir, logger, clock)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -126,7 +128,7 @@ func TestWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), clock)
+		za, err := newZstdArchiver(dir, logger, clock)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -170,7 +172,7 @@ func TestWrite(t *testing.T) {
 		now := time.Date(2026, 9, 24, 13, 59, 0, 0, time.UTC)
 		clock := func() time.Time { return now }
 
-		za, err := newZstdArchiver(dir, log.New(io.Discard, "", log.LstdFlags), clock)
+		za, err := newZstdArchiver(dir, logger, clock)
 		if err != nil {
 			t.Fatal(err)
 		}

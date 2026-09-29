@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
 
-func LoadDotEnv(path string) error {
-	log.Printf("Loading .env file from %s", path)
+func LoadDotEnv(logger *slog.Logger, path string) error {
+	logger.With("path", path)
+	logger.
+		With("path", path).
+		Info("loading environment variables from dotenv file")
 
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
-		log.Printf(".env file does not exist at %s", path)
+		logger.Info(".env file does not exist")
 		return nil
 	}
 	if err != nil {
