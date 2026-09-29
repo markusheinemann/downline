@@ -103,7 +103,7 @@ func (za *ZstdArchiver) rotate() error {
 		return fmt.Errorf("failed to open archive: %w", err)
 	}
 
-	zw, err := zstd.NewWriter(file, zstd.WithEncoderLevel(zstd.SpeedFastest))
+	zw, err := zstd.NewWriter(file, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
 	if err != nil {
 		file.Close()
 		return fmt.Errorf("failed to create zstd encoder: %w", err)
