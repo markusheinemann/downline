@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"testing"
+	"time"
 )
 
 func TestNewSet(t *testing.T) {
@@ -168,6 +169,64 @@ func TestRequiredString(t *testing.T) {
 			}
 			if got != test.expectedOutput {
 				t.Errorf("expected test-required to be %q, got %q", test.expectedOutput, got)
+			}
+		})
+	}
+}
+
+func TestSet_RequiredDuration(t *testing.T) {
+	cases := map[string]struct {
+		env            map[string]string
+		args           []string
+		expectedOutput time.Duration
+		expectedErr    string
+	}{
+		"is satisfied by the flag": {
+			args:           []string{"--test-duration", "30s"},
+			expectedOutput: 30 * time.Second,
+		},
+		"is satisfied by the env var": {
+			env:            map[string]string{"TEST_DURATION": "1m"},
+			args:           []string{},
+			expectedOutput: time.Minute,
+		},
+		"lets the flag override the env var": {
+			env:            map[string]string{"TEST_DURATION": "1m"},
+			args:           []string{"--test-duration", "30s"},
+			expectedOutput: 30 * time.Second,
+		},
+		"fails when neither flag nor env var is set": {
+			args:        []string{},
+			expectedErr: "\t--test-duration or TEST_DURATION is required",
+		},
+		"fails when the env var is not a valid duration": {
+			args:        []string{"--test-duration", "60"},
+			expectedErr: "invalid value \"60\" for flag -test-duration: parse error",
+		},
+	}
+
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			for k, v := range test.env {
+				t.Setenv(k, v)
+			}
+
+			var got time.Duration
+			s := NewSet("test_duration")
+			s.RequiredDuration(&got, "test-duration", "a required value")
+
+			err := s.Parse(test.args)
+			if test.expectedErr != "" {
+				if err == nil || err.Error() != test.expectedErr {
+					t.Fatalf("expected Parse(%q) to fail with %q, got %v", test.args, test.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected Parse(%q) to succeed, got %v", test.args, err)
+			}
+			if got != test.expectedOutput {
+				t.Errorf("expected test-duration to be %q, got %q", test.expectedOutput, got)
 			}
 		})
 	}

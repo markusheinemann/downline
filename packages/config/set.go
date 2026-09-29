@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type Set struct {
@@ -39,6 +40,22 @@ func (s *Set) String(p *string, name, def, usage string) {
 func (s *Set) RequiredString(p *string, name, usage string) {
 	s.String(p, name, "", fmt.Sprintf(" [%s]", usage))
 	s.required = append(s.required, requiredOpt{name, func() bool { return *p != "" }})
+}
+
+func (s *Set) RequiredDuration(p *time.Duration, name string, usage string) {
+	var def time.Duration
+	if v, ok := os.LookupEnv(EnvKey(name)); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			s.errs = append(s.errs, fmt.Errorf("\t%s: invalid duration %q: %w", EnvKey(name), v, err))
+		} else {
+			def = d
+		}
+	}
+	s.fs.DurationVar(p, name, def, fmt.Sprintf(" [%s]", usage))
+	s.required = append(s.required, requiredOpt{name, func() bool {
+		return *p != 0
+	}})
 }
 
 func (s *Set) Parse(args []string) error {
