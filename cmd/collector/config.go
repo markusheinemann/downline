@@ -9,6 +9,7 @@ import (
 type Config struct {
 	OpenSky      config.OpenSky
 	PollInterval time.Duration
+	ArchivePath  string
 }
 
 func loadConfig(args []string) (Config, error) {
@@ -19,6 +20,10 @@ func loadConfig(args []string) (Config, error) {
 	var cfg Config
 	s := config.NewSet("collector")
 	cfg.OpenSky.Register(s)
+
+	s.RequiredDuration(&cfg.PollInterval, "poll-interval", "Interval between fetches to the api (e.g. 30s or 1m)")
+	s.RequiredString(&cfg.ArchivePath, "archive-path",
+		"Path to location where the zstd archive files will be stored.")
 
 	return cfg, s.Parse(args)
 }

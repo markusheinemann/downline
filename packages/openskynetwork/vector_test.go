@@ -19,11 +19,6 @@ const exampleResponse = `{
 	]
 }`
 
-const exampleResponseEmpty = `{
-	"time":1789300433,
-	"states":null
-}`
-
 func TestClient_ListAllStateVectorsWithoutParameters(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/states/all" {
@@ -38,15 +33,21 @@ func TestClient_ListAllStateVectorsWithoutParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.Time != 1700000000 {
-		t.Errorf("expected time to be 1700000000, got %d", res.Time)
+	if string(res.Raw) != exampleResponse {
+		t.Errorf("expected raw response to be %s, got %s", exampleResponse, res.Raw)
 	}
 
-	if len(res.States) != 2 {
-		t.Errorf("expected 2 states, got %d", len(res.States))
+	mappedRes := res.Mapped
+
+	if mappedRes.Time != 1700000000 {
+		t.Errorf("expected time to be 1700000000, got %d", mappedRes.Time)
 	}
 
-	state := res.States[0]
+	if len(mappedRes.States) != 2 {
+		t.Errorf("expected 2 states, got %d", len(mappedRes.States))
+	}
+
+	state := mappedRes.States[0]
 	if state.Icao24 != "39de4f" {
 		t.Errorf("expected icao24 to be 39de4f, got %s", state.Icao24)
 	}

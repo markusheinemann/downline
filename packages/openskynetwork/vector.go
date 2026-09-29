@@ -100,6 +100,12 @@ type StateVectorsResponse struct {
 	States []StateVector `json:"states"`
 }
 
+// StateVectorsRawResponse is the raw result of ListAllStateVectors.
+type StateVectorsRawResponse struct {
+	Raw    []byte
+	Mapped StateVectorsResponse
+}
+
 // StateVectorOptions filters the states returned by ListAllStateVectors.
 // The zero value requests all aircraft at the current time.
 type StateVectorOptions struct {
@@ -190,18 +196,27 @@ func (s *StateVector) UnmarshalJSON(b []byte) error {
 
 // ListAllStateVectors fetches state vectors from GET /states/all.
 // A response with a status code outside the 2xx range returns an *APIError.
-func (c *Client) ListAllStateVectors(ctx context.Context, options StateVectorOptions) (*StateVectorsResponse, error) {
+func (c *Client) ListAllStateVectors(ctx context.Context, options StateVectorOptions) (*StateVectorsRawResponse, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, "/states/all", nil)
 	if err != nil {
 		return nil, err
 	}
 	req.URL.RawQuery = options.query().Encode()
 
-	var res StateVectorsResponse
-
-	if _, err := c.do(req, &res); err != nil {
+	var rawBody json.RawMessage
+	if _, err := c.do(req, &rawBody); err != nil {
 		return nil, err
 	}
 
-	return &res, nil
+	var mappedRes StateVectorsResponse
+	if err := json.Unmarshal(rawBody, &mappedRes); err != nil {
+		return nil, err
+	}
+
+	res := &StateVectorsRawResponse{
+		Raw:    rawBody,
+		Mapped: mappedRes,
+	}
+
+	return res, nil
 }

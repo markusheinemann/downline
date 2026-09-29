@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
 	"os"
+	"os/signal"
 
+	"github.com/markusheinemann/downline/internal/collector"
+	"github.com/markusheinemann/downline/packages/archive"
 	"github.com/markusheinemann/downline/packages/config"
 	"github.com/markusheinemann/downline/packages/openskynetwork"
 	"golang.org/x/oauth2"
@@ -13,21 +16,25 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	ctx := context.Background()
+	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+
 	cfg, err := loadConfig(os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to load config:\n%v", err)
 	}
 
 	client := createOpenSkyClient(ctx, cfg.OpenSky)
+	archiver := createArchiver(cfg.ArchivePath, logger)
+	defer archiver.Close()
 
-	res, err := client.ListAllStateVectors(ctx, openskynetwork.StateVectorOptions{})
-	if err != nil {
-		log.Fatalf("%v", err)
+	col := collector.New(logger, client, cfg.PollInterval, archiver)
+	err = col.Run(ctx)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		log.Printf("failed to run collector:%v", err)
 	}
-
-	fmt.Println(res)
 }
 
 func createOpenSkyClient(ctx context.Context, cfg config.OpenSky) *openskynetwork.Client {
@@ -40,4 +47,12 @@ func createOpenSkyClient(ctx context.Context, cfg config.OpenSky) *openskynetwor
 	ts := conf.TokenSource(ctx)
 	tc := oauth2.NewClient(ctx, ts)
 	return openskynetwork.NewClient(tc)
+}
+
+func createArchiver(outputPath string, logger *log.Logger) *archive.ZstdArchiver {
+	archiver, err := archive.NewZstdArchiver(outputPath, logger)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	return archiver
 }

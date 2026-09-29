@@ -2,6 +2,7 @@
 # https://mohitkhare.com/blog/go-makefile/
 
 export GO111MODULE=on
+export CGO_ENABLED=1
 
 # Optional colors to beautify output
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -30,7 +31,7 @@ tidy: ## runs tidy to fix go.mod dependencies
 ## Testing
 test: ## runs tests and create generates coverage report
 	make tidy
-	go test -v -race -timeout 10m ./... -coverprofile=coverage.out -json > report.json
+	go test -v -race -timeout 10m ./... -coverprofile=coverage.out
 
 coverage-check: ## checks if the minimum code coverage is given
 	@grep -v '/cmd/' coverage.out > coverage.filtered.out
@@ -40,7 +41,8 @@ coverage-check: ## checks if the minimum code coverage is given
 
 coverage: ## displays test coverage report in html mode
 	make test
-	go tool cover -html=coverage.out
+	go tool cover -html coverage.out -o cover.html
+
 
 ## Build
 build: ## build all binaries

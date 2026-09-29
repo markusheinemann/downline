@@ -1,3 +1,5 @@
+archive
+
 # Created by https://www.toptal.com/developers/gitignore/api/go
 # Edit at https://www.toptal.com/developers/gitignore?templates=go
 
@@ -15,6 +17,7 @@ out/
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 report.json
+cover.html
 
 # End of https://www.toptal.com/developers/gitignore/api/go
 
