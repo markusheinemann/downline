@@ -162,10 +162,16 @@ func (w *fakeWriter) Close() error {
 		return err
 	}
 
+	data := bytes.Clone(w.buf.Bytes())
+
+	if w.remote.injected("corrupt", w.path) != nil && len(data) > 0 {
+		data[0] ^= 0xFF // flip the first byte
+	}
+
 	w.remote.mu.Lock()
 	defer w.remote.mu.Unlock()
+	w.remote.files[w.path] = data
 
-	w.remote.files[w.path] = bytes.Clone(w.buf.Bytes())
 	return nil
 }
 

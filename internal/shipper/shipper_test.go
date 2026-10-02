@@ -161,12 +161,14 @@ func TestRun_ContinuesAfterFailedFile(t *testing.T) {
 		op   string
 		path string
 	}{
-		"mkdir fails":  {op: "mkdir", path: "tier1/2026/03/07"},
-		"create fails": {op: "create", path: middleTmp},
-		"open fails":   {op: "open", path: "tier1/2026/03/07/" + middle},
-		"write fails":  {op: "write", path: middleTmp},
-		"close fails":  {op: "close", path: middleTmp},
-		"rename fails": {op: "rename", path: middleTmp},
+		"mkdir fails":       {op: "mkdir", path: "tier1/2026/03/07"},
+		"create fails":      {op: "create", path: middleTmp},
+		"open fails":        {op: "open", path: "tier1/2026/03/07/" + middle},
+		"write fails":       {op: "write", path: middleTmp},
+		"close fails":       {op: "close", path: middleTmp},
+		"rename fails":      {op: "rename", path: middleTmp},
+		"upload corrupted":  {op: "corrupt", path: middleTmp},
+		"verify open fails": {op: "open", path: middleTmp},
 	}
 
 	for name, tc := range cases {

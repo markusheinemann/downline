@@ -16,6 +16,7 @@ import (
 )
 
 var errRemoteMismatch = errors.New("remote file differs from local file")
+var errUploadCorrupted = errors.New("uploaded file differs from local file")
 
 type Shipper struct {
 	localDir   string
@@ -135,9 +136,28 @@ func (s *Shipper) publish(localPath string, remotePath string) error {
 	if err := s.upload(localPath, tmpPath); err != nil {
 		return err
 	}
+	if err := s.verify(localPath, tmpPath); err != nil {
+		s.removeRemote(tmpPath)
+		return err
+	}
 	if err := s.remote.Rename(tmpPath, remotePath); err != nil {
 		s.removeRemote(tmpPath)
 		return fmt.Errorf("publish %s: %w", remotePath, err)
+	}
+	return nil
+}
+
+func (s *Shipper) verify(localPath, remotePath string) error {
+	uploaded, err := s.remote.Open(remotePath)
+	if err != nil {
+		return fmt.Errorf("open remote file %s: %w", remotePath, err)
+	}
+	same, err := matchRemote(localPath, uploaded)
+	if err != nil {
+		return fmt.Errorf("verify %s: %w", remotePath, err)
+	}
+	if !same {
+		return fmt.Errorf("verify %s: %w", remotePath, errUploadCorrupted)
 	}
 	return nil
 }
