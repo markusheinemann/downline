@@ -49,7 +49,7 @@ func (za *ZstdArchiver) Write(content []byte) (int, error) {
 	za.mu.Lock()
 	defer za.mu.Unlock()
 
-	if !za.currentHour.Equal(za.now().Truncate(time.Hour)) {
+	if !za.currentHour.Equal(za.now().UTC().Truncate(time.Hour)) {
 		if err := za.rotate(); err != nil {
 			return 0, fmt.Errorf("unable to rotate zstd archive: %w", err)
 		}
@@ -95,7 +95,7 @@ func (za *ZstdArchiver) rotate() error {
 	}
 
 	now := za.now()
-	fileName := fmt.Sprintf("archive_%s.zst", now.Format("2006-01-02_15"))
+	fileName := FileName(now)
 	fullPath := filepath.Join(za.outputPath, fileName)
 
 	file, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -111,15 +111,11 @@ func (za *ZstdArchiver) rotate() error {
 
 	za.outputFile = file
 	za.encoder = zw
-	za.currentHour = startOfHour(now)
+	za.currentHour = now.UTC().Truncate(time.Hour)
 
 	za.logger.
 		With("name", fileName).
 		Info("rotated archive stream to new frame")
 
 	return nil
-}
-
-func startOfHour(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
