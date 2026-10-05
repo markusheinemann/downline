@@ -238,8 +238,8 @@ func TestRun_HandlesArchiveAlreadyOnRemote(t *testing.T) {
 
 			s, localDir, remote := newTestShipper(t, time.Date(2026, time.March, 8, 14, 30, 0, 0, time.UTC))
 			writeLocal(t, localDir, name, localContent)
-			seedTestDir(t, remote, path.Dir(remotePath))
-			seedTestFile(t, remote, remotePath, tc.remoteContent)
+			mustMkdirAll(t, remote, path.Dir(remotePath))
+			mustWriteFile(t, remote, remotePath, string(tc.remoteContent))
 
 			remote.failAt("create", remotePath+".tmp")
 

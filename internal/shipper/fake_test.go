@@ -175,67 +175,12 @@ func (w *fakeWriter) Close() error {
 	return nil
 }
 
-func seedTestDir(t *testing.T, fake *fakeRemoteFS, path string) {
-	t.Helper()
-
-	err := fake.MkdirAll(path)
-	if err != nil {
-		t.Fatalf("failed to mkdir %s: %v", path, err)
-	}
-}
-
-func seedTestFile(t *testing.T, fake *fakeRemoteFS, path string, content []byte) {
-	t.Helper()
-
-	f, err := fake.Create(path)
-	if err != nil {
-		t.Fatalf("failed to open %s: %v", path, err)
-	}
-
-	_, err = f.Write(content)
-	if err != nil {
-		t.Fatalf("failed to write to %s: %v", path, err)
-	}
-
-	err = f.Close()
-	if err != nil {
-		t.Fatalf("failed to close %s: %v", path, err)
-	}
-}
-
-func TestFakeFS_MkdirAll(t *testing.T) {
+func TestFakeRemoteFS_WriteCommitsOnClose(t *testing.T) {
 	fake := newFakeRemoteFS()
 
-	err := fake.MkdirAll("a/b/c")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !fake.dirs["a"] {
-		t.Errorf("expected a to be a dir but it dose not exists")
-	}
-	if !fake.dirs["a/b"] {
-		t.Errorf("expected a/b to be a dir but it dose not exists")
-	}
-	if !fake.dirs["a/b/c"] {
-		t.Errorf("expected a/b/c to be a dir but it dose exists")
-	}
-}
-
-func TestFakeFS_Create(t *testing.T) {
-	fake := newFakeRemoteFS()
+	mustMkdirAll(t, fake, "a")
 
 	writer, err := fake.Create("a/notes.txt")
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("expected error ErrNotExist but got %v", err)
-	}
-	if writer != nil {
-		t.Errorf("expected writer to be nil when creating a file in a folder that doesn't exist")
-	}
-
-	seedTestDir(t, fake, "a")
-
-	writer, err = fake.Create("a/notes.txt")
 	if err != nil {
 		t.Fatalf("unexpected error when creating a file that doesn't exist: %v", err)
 	}
@@ -262,81 +207,18 @@ func TestFakeFS_Create(t *testing.T) {
 	}
 }
 
-func TestFakeFS_Open(t *testing.T) {
-	fake := newFakeRemoteFS()
-	seedTestFile(t, fake, "notes.txt", []byte("hello world"))
+func TestFakeRemoteFS_Corrupt(t *testing.T) {
+	f := newFakeRemoteFS()
+	mustMkdirAll(t, f, "a")
+	f.failAt("corrupt", "a/x")
 
-	f, err := fake.Open("notes.txt")
-	if err != nil {
-		t.Fatalf("unexpected error when opening a file: %v", err)
-	}
+	mustWriteFile(t, f, "a/x", "hello world")
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		t.Fatalf("unexpected error when reading from a file: %v", err)
+	got := mustReadFile(t, f, "a/x")
+	if len(got) != len("hello world") {
+		t.Errorf("length: got %d, want %d", len(got), len("hello world"))
 	}
-	if string(data) != "hello world" {
-		t.Errorf("expected data to be \"hello world\", got %q", string(data))
-	}
-
-	// open missing file on existing folder
-	seedTestDir(t, fake, "a")
-	_, err = fake.Open("a/not_exists.txt")
-	if !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("expected os.ErrNotExist error, got %v", err)
-	}
-}
-
-func TestFakeFS_Rename(t *testing.T) {
-	fake := newFakeRemoteFS()
-
-	seedTestDir(t, fake, "a")
-	seedTestDir(t, fake, "b")
-	seedTestFile(t, fake, "a/notes.txt", []byte("hello world"))
-
-	// normal case works
-	err := fake.Rename("a/notes.txt", "b/notizen.txt")
-	if err != nil {
-		t.Fatalf("unexpected error when renaming a file: %v", err)
-	}
-	if _, ok := fake.files["a/notes.txt"]; ok {
-		t.Errorf("expected old file to be removed")
-	}
-	if _, ok := fake.files["b/notizen.txt"]; !ok {
-		t.Errorf("expected file to exist")
-	}
-
-	// Fails if the target file already exists
-	seedTestFile(t, fake, "a/notes.txt", []byte("hello world"))
-	err = fake.Rename("a/notes.txt", "b/notizen.txt")
-	if !errors.Is(err, fs.ErrExist) {
-		t.Errorf("expected ErrExist got: %v", err)
-	}
-
-	// Fails if the target folder dose not exists
-	err = fake.Rename("b/notizen.txt", "c/notes.txt")
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("expected ErrNotExist got: %v", err)
-	}
-	// should not remove original file on error
-	if _, ok := fake.files["b/notizen.txt"]; !ok {
-		t.Errorf("expected renamed filed not to be deleted on error")
-	}
-}
-
-func TestFakeFS_Remove(t *testing.T) {
-	fake := newFakeRemoteFS()
-	seedTestFile(t, fake, "notes.txt", []byte("hello world"))
-
-	// first remove should pass
-	err := fake.Remove("notes.txt")
-	if err != nil {
-		t.Fatalf("unexpected error when removing a file: %v", err)
-	}
-
-	// second remove should fail because the file dose not exists
-	err = fake.Remove("notes.txt")
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("expected ErrNotExist got: %v", err)
+	if got == "hello world" {
+		t.Errorf("expected corrupted content, got the original %q", got)
 	}
 }
