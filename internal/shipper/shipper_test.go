@@ -349,3 +349,19 @@ func TestRun_IsIdempotent(t *testing.T) {
 		t.Errorf("expected local directory: got %v, want none", got)
 	}
 }
+
+func TestReport_Summary(t *testing.T) {
+	report := &Report{
+		Shipped:    []string{"shipped"},
+		Ignored:    []string{"ignored"},
+		Mismatches: []string{"mismatches"},
+		Failed:     []string{"failed"},
+	}
+
+	got := report.Summary()
+	expected := "shipped=1 failed=[failed] mismatches=[mismatches] ignored=[ignored]"
+
+	if got != expected {
+		t.Errorf("expected empty summary %q, got: %v", expected, got)
+	}
+}

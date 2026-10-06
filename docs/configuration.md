@@ -17,11 +17,12 @@ Here the configuration properties for each component are listed.
 The shipper uploads closed hourly archives from `ARCHIVE_PATH` to an SFTP server. Use the same `ARCHIVE_PATH` as the
 collector.
 
-| Env                   | Flag                      | Required | Default | Description                                                                                                                       |
-|-----------------------|---------------------------|----------|---------|-----------------------------------------------------------------------------------------------------------------------------------|
-| ARCHIVE_PATH          | `--archive-path`          | yes      | -       | Directory with the hourly archives written by the collector. Archives are deleted here after a verified upload.                  |
-| SFTP_ADDR             | `--sftp-addr`             | yes      | -       | SFTP server address as `host:port`, e.g. `127.0.0.1:22`. Hetzner Storage Boxes use port 23.                                       |
-| SFTP_USER             | `--sftp-user`             | yes      | -       | SFTP user name, e.g. `uploader`.                                                                                                  |
-| SFTP_KEY_FILE         | `--sftp-key-file`         | yes      | -       | Path to the SSH private key used to log in. The key must not have a passphrase.                                                   |
+| Env                   | Flag                      | Required | Default | Description                                                                                                                               |
+|-----------------------|---------------------------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| ARCHIVE_PATH          | `--archive-path`          | yes      | -       | Directory with the hourly archives written by the collector. Archives are deleted here after a verified upload.                           |
+| SFTP_ADDR             | `--sftp-addr`             | yes      | -       | SFTP server address as `host:port`, e.g. `127.0.0.1:22`. Hetzner Storage Boxes use port 23.                                               |
+| SFTP_USER             | `--sftp-user`             | yes      | -       | SFTP user name, e.g. `uploader`.                                                                                                          |
+| SFTP_KEY_FILE         | `--sftp-key-file`         | yes      | -       | Path to the SSH private key used to log in. The key must not have a passphrase.                                                           |
 | SFTP_KNOWN_HOSTS_FILE | `--sftp-known-hosts-file` | yes      | -       | Path to a `known_hosts` file with the server's host key, e.g. created with `ssh-keyscan`. The connection fails if the key does not match. |
-| SFTP_DIR              | `--sftp-dir`              | no       | `tier1` | Directory on the SFTP server to upload archives to, relative to the user's home. Archives are stored in `YYYY/MM/DD` subdirectories. |
+| SFTP_DIR              | `--sftp-dir`              | no       | `tier1` | Directory on the SFTP server to upload archives to, relative to the user's home. Archives are stored in `YYYY/MM/DD` subdirectories.      |
+| PING_URL              | `--ping-url`              | no       | -       | Health check URL that receives the exit code of every run, e.g. https://hc-ping.com/<uuid>. Disabled if empty                             |

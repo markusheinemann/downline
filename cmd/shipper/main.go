@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/markusheinemann/downline/internal/monitoring"
 	"github.com/markusheinemann/downline/internal/shipper"
 )
 
@@ -27,12 +28,19 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	code, summary := ship(ctx, cfg, logger)
+	monitoring.Ping(cfg.PingURL, code, summary, 10*time.Second, logger)
+
+	return code
+}
+
+func ship(ctx context.Context, cfg Config, logger *slog.Logger) (int, string) {
 	remote, err := shipper.DialSFTP(cfg.SFTP.Addr, cfg.SFTP.User, cfg.SFTP.KeyFile, cfg.SFTP.KnownHostsFile)
 	if err != nil {
 		logger.Error("failed to dial sftp",
 			"addr", cfg.SFTP.Addr,
 			"err", err)
-		return 1
+		return 1, "connect to sftp server: " + err.Error()
 	}
 	defer func() {
 		err := remote.Close()
@@ -57,11 +65,11 @@ func run() int {
 
 	if err != nil {
 		logger.Error("run failed", "err", err)
-		return 1
+		return 1, report.Summary() + "\nerror:" + err.Error()
 	}
 	if len(report.Failed) > 0 || len(report.Mismatches) > 0 {
-		return 1
+		return 1, report.Summary()
 	}
 
-	return 0
+	return 0, report.Summary()
 }

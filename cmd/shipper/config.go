@@ -17,6 +17,7 @@ type SFTPConfig struct {
 type Config struct {
 	ArchivePath string
 	SFTP        SFTPConfig
+	PingURL     string
 }
 
 func (c *SFTPConfig) Register(s *config.Set) {
@@ -42,6 +43,9 @@ func loadConfig(logger *slog.Logger, args []string) (Config, error) {
 
 	s.RequiredString(&cfg.ArchivePath, "archive-path",
 		"Directory with the hourly archives written by the collector. Archives are deleted here after a verified upload.")
+	s.String(&cfg.PingURL, "ping-url", "",
+		"Health check URL that receives the exit code of every run. Disabled if empty")
+
 	cfg.SFTP.Register(s)
 
 	return cfg, s.Parse(args)

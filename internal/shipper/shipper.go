@@ -226,3 +226,9 @@ func (s *Shipper) removeRemote(p string) {
 		s.log.Warn("failed to remove remote file", "path", p, "err", err)
 	}
 }
+
+// Summary returns a human-readable description of the run
+func (r Report) Summary() string {
+	return fmt.Sprintf("shipped=%d failed=%v mismatches=%v ignored=%v",
+		len(r.Shipped), r.Failed, r.Mismatches, r.Ignored)
+}
