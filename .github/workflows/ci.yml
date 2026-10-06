@@ -46,7 +46,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        module: [collector]
+        module: [collector, shipper]
     env:
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
