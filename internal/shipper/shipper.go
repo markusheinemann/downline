@@ -51,6 +51,8 @@ func New(localDir string, remote remoteFS, remoteRoot string, now func() time.Ti
 	}
 }
 
+// Run uploads every closed local archive to the remote. The returned
+// report is always valid even if Run returns an error.
 func (s *Shipper) Run(ctx context.Context) (Report, error) {
 	names, err := s.localArchives()
 	if err != nil {
