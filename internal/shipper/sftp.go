@@ -42,6 +42,12 @@ func (s *SFTP) Open(p string) (io.ReadCloser, error) {
 }
 
 func (s *SFTP) Rename(oldPath, newPath string) error {
+	// some servers (e.g. Hetzner Storage Boxes) overwrite existing targets on rename, others refuse it. check first
+	// to make sure the behavior is the same everywhere.
+	if _, err := s.client.Stat(newPath); err == nil {
+		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: fs.ErrExist}
+	}
+
 	err := s.client.Rename(oldPath, newPath)
 	if err == nil {
 		return nil
