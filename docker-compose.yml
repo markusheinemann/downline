@@ -1,0 +1,55 @@
+services:
+  # Generates ssh-key for the local sftp server
+  sftp-keygen:
+    image: alpine:3.24
+    volumes:
+      - ./dev/sftp:/out
+      - sftp-authorized:/authorized
+      - sftp-data:/data
+    entrypoint: [ "sh", "-c" ]
+    command:
+      - |
+        set -e
+        if [ ! -f /out/client_key ]; then
+          apk add --no-cache openssh-keygen > /dev/null
+          ssh-keygen -q -t ed25519 -N "" -C downline-dev -f /out/client_key
+          chmod 644 /out/client_key
+        fi
+        cp /out/client_key.pub /authorized/client_key.pub
+        chown 1001:100 /data
+  # Local sftp server to run the shipper in development
+  sftp:
+    image: atmoz/sftp:alpine
+    depends_on:
+      sftp-keygen:
+        condition: service_completed_successfully
+    ports:
+      - "2222:22"
+    command:
+      - uploader::1001::upload
+    volumes:
+      - sftp-authorized:/home/uploader/.ssh/keys:ro  # pick up the ssh key
+      - sftp-ssh:/etc/ssh                       # make sure host keys survive restarts
+      - sftp-data:/home/uploader/upload   # data that arrived on the server
+
+  sftp-known-hosts:
+    image: alpine:3.24
+    depends_on:
+      - sftp
+    volumes:
+      - ./dev/sftp:/out
+    entrypoint: [ "sh", "-c" ]
+    command:
+      - |
+        set -e
+        apk add --no-cache openssh-client-common > /dev/null
+        for i in $(seq 1 30); do
+          ssh-keyscan -p 22 sftp > /tmp/known_hosts 2> /dev/null && [ -s /tmp/known_hosts ] && break
+          sleep 1
+        done
+        sed 's/^sftp /[localhost]:2222 /' /tmp/known_hosts > /out/known_hosts
+
+volumes:
+  sftp-ssh:
+  sftp-authorized:
+  sftp-data:

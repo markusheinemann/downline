@@ -47,16 +47,27 @@ coverage: ## displays test coverage report in html mode
 ## Build
 build: ## build all binaries
 	make build-collector
+	make build-shipper
 
 build-collector: ## build the go application
 	mkdir -p out/
 	go build -o ./out/collector ./cmd/collector
 	@echo "Build for collector passed"
 
+build-shipper: ## build the go application
+	mkdir -p out/
+	go build -o ./out/shipper ./cmd/shipper
+	@echo "Build for shipper passed"
+
 run-collector: ## runs the collector binary
 	make build-collector
 	chmod +x ./out/collector
 	./out/collector
+
+run-shipper: ## runs the shipper binary
+	make build-shipper
+	chmod +x ./out/shipper
+	./out/shipper
 
 clean: ## cleans binary and other generated files
 	go clean
