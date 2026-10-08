@@ -13,6 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+
+	"github.com/markusheinemann/downline/packages/archive"
 )
 
 var errRemoteMismatch = errors.New("remote file differs from local file")
@@ -31,6 +33,9 @@ type Report struct {
 	Failed     []string
 	Ignored    []string
 	Mismatches []string
+
+	// LastWrite is the modification time of the current hours archive.
+	LastWrite time.Time
 }
 
 type remoteFS interface {
@@ -59,13 +64,14 @@ func (s *Shipper) Run(ctx context.Context) (Report, error) {
 		return Report{}, err
 	}
 
-	uploads, ignored := plan(names, s.now(), s.remoteRoot)
+	now := s.now()
+	uploads, ignored := plan(names, now, s.remoteRoot)
 	if len(ignored) > 0 {
 		s.log.Warn("ignoring unknown files", "files", ignored)
 	}
 	s.log.Info("starting run", "uploads", len(uploads))
 
-	report := Report{Ignored: ignored}
+	report := Report{Ignored: ignored, LastWrite: s.lastWrite(now)}
 	for _, u := range uploads {
 		if err := ctx.Err(); err != nil {
 			return report, err
@@ -225,6 +231,17 @@ func (s *Shipper) removeRemote(p string) {
 	if err := s.remote.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 		s.log.Warn("failed to remove remote file", "path", p, "err", err)
 	}
+}
+
+func (s *Shipper) lastWrite(now time.Time) time.Time {
+	info, err := os.Stat(filepath.Join(s.localDir, archive.FileName(now)))
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			s.log.Warn("failed to check current archive", "err", err)
+		}
+		return time.Time{}
+	}
+	return info.ModTime()
 }
 
 // Summary returns a human-readable description of the run

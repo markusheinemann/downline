@@ -11,6 +11,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/markusheinemann/downline/packages/archive"
 )
 
 func newTestShipper(t *testing.T, now time.Time) (*Shipper, string, *fakeRemoteFS) {
@@ -364,4 +366,41 @@ func TestReport_Summary(t *testing.T) {
 	if got != expected {
 		t.Errorf("expected empty summary %q, got: %v", expected, got)
 	}
+}
+
+func TestRun_ReportsLastWriteOfCurrentHour(t *testing.T) {
+	now := time.Date(2026, time.March, 8, 14, 30, 0, 0, time.UTC)
+
+	t.Run("current hour archive exists", func(t *testing.T) {
+		s, localDir, _ := newTestShipper(t, now)
+
+		current := filepath.Join(localDir, archive.FileName(now))
+		writeLocal(t, localDir, archive.FileName(now), []byte("data"))
+		mtime := time.Date(2026, time.March, 8, 14, 27, 0, 0, time.UTC)
+		if err := os.Chtimes(current, mtime, mtime); err != nil {
+			t.Fatalf("set mtime: %v", err)
+		}
+
+		report, err := s.Run(t.Context())
+		if err != nil {
+			t.Fatalf("expected Run to succeed, got: %v", err)
+		}
+		if !report.LastWrite.Equal(mtime) {
+			t.Errorf("last write: got %v, want %v", report.LastWrite, mtime)
+		}
+	})
+
+	t.Run("current hour archive does not exist", func(t *testing.T) {
+		s, localDir, _ := newTestShipper(t, now)
+		// only an old archive exists
+		writeLocal(t, localDir, archive.FileName(now.Add(-time.Hour)), []byte("data"))
+
+		report, err := s.Run(t.Context())
+		if err != nil {
+			t.Fatalf("expected Run to succeed, got: %v", err)
+		}
+		if !report.LastWrite.IsZero() {
+			t.Errorf("last write: got %v, want zero time", report.LastWrite)
+		}
+	})
 }
