@@ -213,12 +213,26 @@ SFTP_USER=<sftp-user>
 SFTP_KEY_FILE=/ssh/storagebox
 SFTP_KNOWN_HOSTS_FILE=/ssh/known_hosts
 SFTP_DIR=tier1
+PING_URL=<ping-url>
+STALE_AFTER=5m
 EOF
 chmod 600 /etc/downline/shipper.env
 ```
 
 All paths are paths inside the container. The shipper stores the archives on the SFTP server in subdirectories of
 `SFTP_DIR`, for example `tier1/2026/10/06/archive_2026-10-06_13.zst`.
+
+`PING_URL` and `STALE_AFTER` configure the monitoring. Both are optional. If you do not want monitoring, remove the two
+lines.
+
+* `PING_URL` is a health check URL. After every run, the shipper sends the exit code and a short summary of the run to
+  this URL. This guide uses [healthchecks.io](https://healthchecks.io). Create a check with a period of 1 hour and a
+  grace time of 30 minutes, and use its ping URL, for example `https://hc-ping.com/<uuid>`. If no ping arrives within
+  the period and grace time, or a run reports a failure, healthchecks.io sends an alert. Treat the ping URL like a
+  password, because anyone who knows it can send pings to your check.
+* `STALE_AFTER` detects a stopped collector. If the collector has not written to the archive of the current hour for
+  longer than this duration, the run fails. Use about three times the poll interval of the collector. With a poll
+  interval of `100s`, `5m` is a good value.
 
 > **Warning:** The shipper deletes every archive from `ARCHIVE_PATH` after it has uploaded and verified it. Do not
 > point `ARCHIVE_PATH` to a directory that contains files you want to keep.
@@ -307,6 +321,23 @@ ls -l /var/lib/downline/archive
 
 The shipper log must report `shipped=1`, and the archive directory must contain only the archive of the current hour.
 
+If you configured `PING_URL`, the check on healthchecks.io must show a successful ping for every run, with the summary
+of the run as its body.
+
+To test the detection of a stopped collector, stop the collector, wait longer than `STALE_AFTER`, and start the shipper
+manually:
+
+```bash
+systemctl stop downline-collector.service
+sleep 360
+systemctl start downline-shipper.service
+journalctl --no-pager -u downline-shipper.service -n 20
+systemctl start downline-collector.service
+```
+
+The shipper log must contain `collector stalled`, and healthchecks.io must show a failed ping with the reason
+`collector stalled: last write ... ago`.
+
 ## Updating to a new version
 
 Create the update script once:
@@ -360,3 +391,7 @@ Read the logs of a service with `journalctl --no-pager -u <service> -n 50`. The 
 | `knownhosts: key mismatch`                                       | The host key of the server does not match `known_hosts`       | Repeat step 4 and compare the fingerprints                                        |
 | `create remote directory: permission denied`                     | `SFTP_DIR` is outside the directories the SFTP user can write | Use a directory below the home directory of the SFTP user                         |
 | `remove local ... permission denied`                             | The archive directory is not owned by UID 65532               | Repeat the `chown` command from step 2                                            |
+| `collector stalled: last write ... ago`                          | The collector stopped writing archives                        | Check `journalctl -u downline-collector.service` and restart the collector        |
+| `collector stalled: no archive for the current hour`             | The collector is not running or cannot write to the archive directory | Check the collector logs and the owner of the archive directory           |
+| `failed to send monitoring ping`                                 | The server cannot reach the health check service              | Check the network connection and `PING_URL`                                       |
+| No pings arrive, and the log shows no ping warning               | `PING_URL` is not set, or the image is older than the monitoring feature | Check `/etc/downline/shipper.env` and the version in `/etc/downline/version.env` |

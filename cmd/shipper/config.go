@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/markusheinemann/downline/packages/config"
 )
@@ -18,6 +19,7 @@ type Config struct {
 	ArchivePath string
 	SFTP        SFTPConfig
 	PingURL     string
+	StaleAfter  time.Duration
 }
 
 func (c *SFTPConfig) Register(s *config.Set) {
@@ -45,6 +47,8 @@ func loadConfig(logger *slog.Logger, args []string) (Config, error) {
 		"Directory with the hourly archives written by the collector. Archives are deleted here after a verified upload.")
 	s.String(&cfg.PingURL, "ping-url", "",
 		"Health check URL that receives the exit code of every run. Disabled if empty")
+	s.Duration(&cfg.StaleAfter, "stale-after", 0,
+		"Fail the run if the collector has not written to the current archive for this long, e.g. 5m. Disabled if empty or 0.")
 
 	cfg.SFTP.Register(s)
 

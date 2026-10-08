@@ -63,13 +63,24 @@ func ship(ctx context.Context, cfg Config, logger *slog.Logger) (int, string) {
 		logger.Error("remote archive differs from the local archive", "file", name)
 	}
 
+	summary := report.Summary()
+	failed := err != nil || len(report.Failed) > 0 || len(report.Mismatches) > 0
+
 	if err != nil {
 		logger.Error("run failed", "err", err)
-		return 1, report.Summary() + "\nerror:" + err.Error()
+		summary += "\nerror: " + err.Error()
 	}
-	if len(report.Failed) > 0 || len(report.Mismatches) > 0 {
-		return 1, report.Summary()
+	if cfg.StaleAfter > 0 {
+		if stalled, reason := collectorStalled(report.LastWrite, time.Now(), cfg.StaleAfter); stalled {
+			logger.Error("collector stalled", "last_write", report.LastWrite, "reason", reason)
+			summary += "\n" + reason
+			failed = true
+		}
 	}
 
-	return 0, report.Summary()
+	if failed {
+		return 1, summary
+	}
+
+	return 0, summary
 }
