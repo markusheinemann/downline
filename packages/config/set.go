@@ -42,9 +42,8 @@ func (s *Set) RequiredString(p *string, name, usage string) {
 	s.required = append(s.required, requiredOpt{name, func() bool { return *p != "" }})
 }
 
-func (s *Set) RequiredDuration(p *time.Duration, name string, usage string) {
-	var def time.Duration
-	if v, ok := os.LookupEnv(EnvKey(name)); ok {
+func (s *Set) Duration(p *time.Duration, name string, def time.Duration, usage string) {
+	if v, ok := os.LookupEnv(EnvKey(name)); ok && v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil {
 			s.errs = append(s.errs, fmt.Errorf("\t%s: invalid duration %q: %w", EnvKey(name), v, err))
@@ -53,6 +52,10 @@ func (s *Set) RequiredDuration(p *time.Duration, name string, usage string) {
 		}
 	}
 	s.fs.DurationVar(p, name, def, fmt.Sprintf(" [%s]", usage))
+}
+
+func (s *Set) RequiredDuration(p *time.Duration, name string, usage string) {
+	s.Duration(p, name, 0, usage)
 	s.required = append(s.required, requiredOpt{name, func() bool {
 		return *p != 0
 	}})

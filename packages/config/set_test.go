@@ -174,6 +174,69 @@ func TestRequiredString(t *testing.T) {
 	}
 }
 
+func TestDuration(t *testing.T) {
+	cases := map[string]struct {
+		env            map[string]string
+		args           []string
+		expectedOutput time.Duration
+	}{
+		"uses the default when the env var is unset": {
+			args:           []string{},
+			expectedOutput: time.Duration(1),
+		},
+		"uses the env var as default when set": {
+			env:            map[string]string{"TEST_DURATION": "5m"},
+			args:           []string{},
+			expectedOutput: time.Minute * 5,
+		},
+		"uses an empty env var as default when set": {
+			env:            map[string]string{"TEST_DURATION": ""},
+			args:           []string{},
+			expectedOutput: time.Duration(1),
+		},
+		"lets the flag override the default": {
+			args:           []string{"--test-duration", "5m"},
+			expectedOutput: time.Minute * 5,
+		},
+		"lets the flag override the env var": {
+			env:            map[string]string{"TEST_DURATION": "5m"},
+			args:           []string{"--test-duration", "10s"},
+			expectedOutput: 10 * time.Second,
+		},
+	}
+
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			for k, v := range test.env {
+				t.Setenv(k, v)
+			}
+
+			var got time.Duration
+			s := NewSet("test")
+			s.Duration(&got, "test-duration", time.Duration(1), "test duration")
+
+			if err := s.Parse(test.args); err != nil {
+				t.Fatalf("expected Parse(%q) to succeed, got %v", test.args, err)
+			}
+			if got != test.expectedOutput {
+				t.Errorf("expected test-duration to be %q, got %q", test.expectedOutput, got)
+			}
+		})
+	}
+}
+
+func TestDuration_InvalidEnvVar(t *testing.T) {
+	t.Setenv("TEST_DURATION", "5")
+
+	var got time.Duration
+	s := NewSet("test")
+	s.Duration(&got, "test-duration", time.Minute, "test duration")
+
+	if err := s.Parse(nil); err == nil {
+		t.Fatal("expected Parse to fail for an invalid duration")
+	}
+}
+
 func TestSet_RequiredDuration(t *testing.T) {
 	cases := map[string]struct {
 		env            map[string]string
