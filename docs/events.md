@@ -27,17 +27,17 @@ vectors of these aircraft are included, also those with a different or empty cal
 The OpenSky Network API returns a snapshot of all aircraft every 100 seconds (the collector's poll interval). The
 following fields of a state vector are used:
 
-| Field          | Position | Unit    | Use                                     |
-|----------------|----------|---------|-----------------------------------------|
-| `icao24`       | 0        |         | Identifies the aircraft (transponder).  |
-| `callsign`     | 1        |         | Identifies the flight.                  |
-| `longitude`    | 5        | degrees | Position.                               |
-| `latitude`     | 6        | degrees | Position.                               |
-| `baro_altitude`| 7        | m       | Barometric altitude above sea level.    |
-| `on_ground`    | 8        |         | `true` if the transponder reports ground. |
-| `velocity`     | 9        | m/s     | Ground speed.                           |
-| `vertical_rate`| 11       | m/s     | Climb or descent rate.                  |
-| `geo_altitude` | 13       | m       | Geometric altitude.                     |
+| Field           | Position | Unit    | Use                                       |
+|-----------------|----------|---------|-------------------------------------------|
+| `icao24`        | 0        |         | Identifies the aircraft (transponder).    |
+| `callsign`      | 1        |         | Identifies the flight.                    |
+| `longitude`     | 5        | degrees | Position.                                 |
+| `latitude`      | 6        | degrees | Position.                                 |
+| `baro_altitude` | 7        | m       | Barometric altitude above sea level.      |
+| `on_ground`     | 8        |         | `true` if the transponder reports ground. |
+| `velocity`      | 9        | m/s     | Ground speed.                             |
+| `vertical_rate` | 11       | m/s     | Climb or descent rate.                    |
+| `geo_altitude`  | 13       | m       | Geometric altitude.                       |
 
 Positions are zero based, as in the OpenSky documentation. DuckDB lists are one based, so the queries below use
 `s[1]` for `icao24`.
@@ -50,17 +50,12 @@ DuckDB reads the zstd compressed JSONL archives directly. Each line is one API r
 unnested into one row per aircraft and snapshot:
 
 ```sql
-CREATE OR REPLACE TABLE states AS
-SELECT r.time                        AS snapshot,
-       trim(s[1], '"')               AS icao24,
-       trim(trim(s[2], '"'))         AS callsign,
-       s[6]::DOUBLE                  AS lon,
-       s[7]::DOUBLE                  AS lat,
-       s[8]::DOUBLE                  AS baro_alt,
-       s[9]::BOOLEAN                 AS on_ground,
-       s[10]::DOUBLE                 AS velocity,
-       s[12]::DOUBLE                 AS vertical_rate,
-       s[14]::DOUBLE                 AS geo_alt
+CREATE
+OR REPLACE TABLE states AS
+SELECT r.time                AS snapshot,
+       trim(s[1], '"')       AS icao24,
+       trim(trim(s[2], '"')) AS callsign,
+       s[6]::DOUBLE                  AS lon, s[7]::DOUBLE                  AS lat, s[8]::DOUBLE                  AS baro_alt, s[9]::BOOLEAN                 AS on_ground, s[10]::DOUBLE                 AS velocity, s[12]::DOUBLE                 AS vertical_rate, s[14] ::DOUBLE                 AS geo_alt
 FROM read_json('archive_2026-10-07_*.zst', format = 'newline_delimited', compression = 'zstd') AS r,
      unnest(r.states) AS t(s);
 ```
@@ -72,7 +67,8 @@ was not seen for more than 5 minutes (3 missed snapshots). Segments without any 
 points are dropped.
 
 ```sql
-CREATE OR REPLACE TABLE flights AS
+CREATE
+OR REPLACE TABLE flights AS
 WITH dlh_aircraft AS (
     SELECT DISTINCT icao24 FROM states WHERE callsign LIKE 'DLH%'
 ),
@@ -103,7 +99,10 @@ flight_rows AS (
     FROM segmented
     GROUP BY icao24, flight_no
 )
-SELECT * FROM flight_rows WHERE was_airborne AND points >= 5;
+SELECT *
+FROM flight_rows
+WHERE was_airborne
+  AND points >= 5;
 ```
 
 The segments are then examined at their start, at their end, and at the gap to the next segment.
@@ -123,24 +122,24 @@ Aircraft `3c658c` flew 10 flights on 2026-10-07. Its track shows patterns that a
 
 The 5 minute rule produces 1454 segments.
 
-| Segment            | Count | Share |
-|--------------------|------:|------:|
-| Starts on ground   | 721   | 50 %  |
-| Ends on ground     | 832   | 57 %  |
-| Both               | 451   | 31 %  |
-| Neither            | 352   | 24 %  |
+| Segment          | Count | Share |
+|------------------|------:|------:|
+| Starts on ground |   721 |  50 % |
+| Ends on ground   |   832 |  57 % |
+| Both             |   451 |  31 % |
+| Neither          |   352 |  24 % |
 
 ### Altitude at the end of a segment
 
 622 segments do not end on the ground. Their last altitude, rounded to the nearest 1000 m:
 
-| Last altitude     | Count | Interpretation                                   |
-|-------------------|------:|--------------------------------------------------|
-| below 500 m       | 180   | Final approach, ground contact not received.     |
-| 500 to 1499 m     | 41    | Approach.                                        |
-| 1500 to 8499 m    | 55    | Climb or descent, unclear.                       |
-| 8500 m and above  | 344   | Cruise. The aircraft left the receiver coverage. |
-| unknown           | 2     | No altitude reported.                            |
+| Last altitude    | Count | Interpretation                                   |
+|------------------|------:|--------------------------------------------------|
+| below 500 m      |   180 | Final approach, ground contact not received.     |
+| 500 to 1499 m    |    41 | Approach.                                        |
+| 1500 to 8499 m   |    55 | Climb or descent, unclear.                       |
+| 8500 m and above |   344 | Cruise. The aircraft left the receiver coverage. |
+| unknown          |     2 | No altitude reported.                            |
 
 About 15 % of all segments (221) end on approach. Together with the segments that end on the ground, about 72 % of
 the segments end close to an airport.
@@ -157,26 +156,27 @@ to 98 % of the cases. This query uses all aircraft, not only Lufthansa.
 
 | Region                         | Airborne points | Seen in next snapshot |
 |--------------------------------|----------------:|----------------------:|
-| outside Europe                 | 5,367,965       | 97.1 %                |
-| Europe without the Germany box | 1,761,072       | 98.3 %                |
-| Germany box                    | 319,111         | 98.2 %                |
+| outside Europe                 |       5,367,965 |                97.1 % |
+| Europe without the Germany box |       1,761,072 |                98.3 % |
+| Germany box                    |         319,111 |                98.2 % |
 
 The regions are rectangles: the Germany box covers 47.3 to 55.1° N and 5.9 to 15.0° E and includes parts of the
 neighbouring countries, Europe covers 35 to 72° N and 25° W to 45° E. There is no notable difference between the
 regions. The query cannot show where the covered area ends, because it only sees points that were received.
 
 ```sql
-WITH points AS (
-    SELECT lat, lon,
-           lead(snapshot) OVER (PARTITION BY icao24 ORDER BY snapshot) - snapshot AS gap_after
-    FROM states
-    WHERE NOT on_ground AND lat IS NOT NULL
-)
-SELECT CASE WHEN lat BETWEEN 47.3 AND 55.1 AND lon BETWEEN 5.9 AND 15.0 THEN 'Germany'
-            WHEN lat BETWEEN 35 AND 72 AND lon BETWEEN -25 AND 45        THEN 'rest of Europe'
-            ELSE 'outside Europe' END                                     AS region,
-       count(*)                                                           AS points,
-       round(100 * avg(CASE WHEN gap_after <= 150 THEN 1 ELSE 0 END), 1)  AS seen_next_snapshot_pct
+WITH points AS (SELECT lat,
+                       lon,
+                       lead(snapshot) OVER (PARTITION BY icao24 ORDER BY snapshot) - snapshot AS gap_after
+                FROM states
+                WHERE NOT on_ground
+                  AND lat IS NOT NULL)
+SELECT CASE
+           WHEN lat BETWEEN 47.3 AND 55.1 AND lon BETWEEN 5.9 AND 15.0 THEN 'Germany'
+           WHEN lat BETWEEN 35 AND 72 AND lon BETWEEN -25 AND 45 THEN 'rest of Europe'
+           ELSE 'outside Europe' END                                     AS region,
+       count(*)                                                          AS points,
+       round(100 * avg(CASE WHEN gap_after <= 150 THEN 1 ELSE 0 END), 1) AS seen_next_snapshot_pct
 FROM points
 WHERE gap_after IS NOT NULL
 GROUP BY region
@@ -185,30 +185,28 @@ ORDER BY points DESC;
 
 ### What follows a segment that ends at cruising altitude
 
-| Next segment of the same aircraft | Count | Median gap | Interpretation                                  |
-|-----------------------------------|------:|-----------:|-------------------------------------------------|
-| starts at cruising altitude       | 260   | 63 min     | The same flight, split by a coverage gap.       |
-| starts low or at mid altitude     | 11    | 42 min     | Landing and departure were not observed.        |
-| starts on the ground              | 0     |            |                                                 |
-| none on the same day              | 73    |            | 23 end of day, the rest landed outside coverage. |
+| Next segment of the same aircraft | Count | Median gap | Interpretation                                   |
+|-----------------------------------|------:|-----------:|--------------------------------------------------|
+| starts at cruising altitude       |   260 |     63 min | The same flight, split by a coverage gap.        |
+| starts low or at mid altitude     |    11 |     42 min | Landing and departure were not observed.         |
+| starts on the ground              |     0 |            |                                                  |
+| none on the same day              |    73 |            | 23 end of day, the rest landed outside coverage. |
 
 ```sql
-WITH ordered AS (
-    SELECT *,
-           lead(first_alt)        OVER w AS next_first_alt,
-           lead(starts_on_ground) OVER w AS next_starts_on_ground,
-           lead(first_seen)       OVER w AS next_first_seen
-    FROM flights
-    WINDOW w AS (PARTITION BY icao24 ORDER BY flight_no)
-)
-SELECT CASE WHEN next_first_seen IS NULL THEN 'no later segment'
-            WHEN next_starts_on_ground   THEN 'next starts on ground'
-            WHEN next_first_alt >= 8500  THEN 'next starts at cruise'
-            ELSE 'next starts low or mid' END                  AS what_follows,
-       count(*)                                                 AS segments,
-       round(median(next_first_seen - last_seen) / 60)          AS median_gap_min
+WITH ordered AS (SELECT *,
+                        lead(first_alt) OVER w AS next_first_alt, lead(starts_on_ground) OVER w AS next_starts_on_ground, lead(first_seen) OVER w AS next_first_seen
+                 FROM flights WINDOW w AS (PARTITION BY icao24 ORDER BY flight_no)
+    )
+SELECT CASE
+           WHEN next_first_seen IS NULL THEN 'no later segment'
+           WHEN next_starts_on_ground THEN 'next starts on ground'
+           WHEN next_first_alt >= 8500 THEN 'next starts at cruise'
+           ELSE 'next starts low or mid' END           AS what_follows,
+       count(*)                                        AS segments,
+       round(median(next_first_seen - last_seen) / 60) AS median_gap_min
 FROM ordered
-WHERE NOT ends_on_ground AND last_alt >= 8500
+WHERE NOT ends_on_ground
+  AND last_alt >= 8500
 GROUP BY what_follows
 ORDER BY segments DESC;
 ```
@@ -238,15 +236,15 @@ the gap:
 
 | Callsign before and after the gap | Count | Median gap | Decision |
 |-----------------------------------|------:|-----------:|----------|
-| same                              | 251   | 63 min     | merge    |
-| different                         | 7     | 237 min    | split    |
-| missing on one side               | 2     | 8 min      | merge    |
+| same                              |   251 |     63 min | merge    |
+| different                         |     7 |    237 min | split    |
+| missing on one side               |     2 |      8 min | merge    |
 
 All 7 segments with a different callsign are real flight changes:
 
-| Aircraft | Before    | After     | Gap     |
+| Aircraft | Before    | After     |     Gap |
 |----------|-----------|-----------|--------:|
-| `3c658e` | `DLH1558` | `DLH1559` | 93 min  |
+| `3c658e` | `DLH1558` | `DLH1559` |  93 min |
 | `3c666b` | `DLH9HE`  | `DLH5TN`  | 115 min |
 | `3c64b0` | `DLH582`  | `DLH583`  | 197 min |
 | `3c4a08` | `DLH752`  | `DLH753`  | 237 min |
@@ -259,21 +257,20 @@ coverage, landed at an airport outside the coverage, and returned on the next fl
 would have combined two flights with up to 11 hours between them.
 
 ```sql
-WITH ordered AS (
-    SELECT *,
-           lead(first_alt)      OVER w AS next_first_alt,
-           lead(first_callsign) OVER w AS next_first_callsign,
-           lead(first_seen)     OVER w AS next_first_seen
-    FROM flights
-    WINDOW w AS (PARTITION BY icao24 ORDER BY flight_no)
-)
-SELECT CASE WHEN last_callsign IS NULL OR next_first_callsign IS NULL THEN 'callsign missing'
-            WHEN last_callsign = next_first_callsign                  THEN 'same callsign'
-            ELSE 'different callsign' END                   AS callsign_check,
-       count(*)                                              AS segments,
-       round(median(next_first_seen - last_seen) / 60)       AS median_gap_min
+WITH ordered AS (SELECT *,
+                        lead(first_alt) OVER w AS next_first_alt, lead(first_callsign) OVER w AS next_first_callsign, lead(first_seen) OVER w AS next_first_seen
+                 FROM flights WINDOW w AS (PARTITION BY icao24 ORDER BY flight_no)
+    )
+SELECT CASE
+           WHEN last_callsign IS NULL OR next_first_callsign IS NULL THEN 'callsign missing'
+           WHEN last_callsign = next_first_callsign THEN 'same callsign'
+           ELSE 'different callsign' END               AS callsign_check,
+       count(*)                                        AS segments,
+       round(median(next_first_seen - last_seen) / 60) AS median_gap_min
 FROM ordered
-WHERE NOT ends_on_ground AND last_alt >= 8500 AND next_first_alt >= 8500
+WHERE NOT ends_on_ground
+  AND last_alt >= 8500
+  AND next_first_alt >= 8500
 GROUP BY callsign_check
 ORDER BY segments DESC;
 ```
